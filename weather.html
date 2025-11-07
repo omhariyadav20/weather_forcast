@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Weather App</title>
+  <link rel="icon" href="img.jpg" />
+  <style>
+    :root { --bg1:#0f172a; --bg2:#0b1220; --glass:rgba(255,255,255,0.04); --accent:#60a5fa; --muted:#cbd5e1; }
+    * { box-sizing:border-box; font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; }
+    html,body { height:100%; margin:0; color:#e6eef8; }
+
+    /* Intro (splash) */
+    .intro{position:fixed; inset:0; display:grid; place-items:center; z-index:9999; background:#000; overflow:hidden;}
+    .intro::before{content:""; position:absolute; inset:0; background:url("intro.gif") center/cover no-repeat; filter:brightness(.6);}
+    .intro::after{content:""; position:absolute; inset:0;
+      background:radial-gradient(ellipse at center, rgba(0,0,0,0) 30%, rgba(0,0,0,.45) 100%),
+                 linear-gradient(180deg, rgba(0,0,0,.35), rgba(0,0,0,.15));}
+    .intro .panel{position:relative; width:min(780px,90vw); padding:28px; border-radius:14px; backdrop-filter:blur(8px);
+      background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); box-shadow:0 10px 40px rgba(0,0,0,.45); text-align:center;}
+    .intro h1{margin:0 0 8px; font-size:clamp(28px,5vw,40px); line-height:1.1;}
+    .intro p.desc{margin:6px 0 14px; color:#d7e3f7; font-size:clamp(14px,2.4vw,16px);}
+    .intro .team{display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin:8px 0 18px;}
+    .intro .chip{padding:6px 10px; border-radius:999px; background:rgba(255,255,255,.10); border:1px solid rgba(255,255,255,.14); font-size:13px; color:#eaf2ff;}
+    .intro .actions{display:flex; gap:10px; justify-content:center; margin-top:4px;}
+    .intro button{background:linear-gradient(180deg,var(--accent),#3b82f6); border:none; padding:10px 18px; border-radius:10px; color:#fff; font-weight:700; cursor:pointer; min-width:110px;}
+    .intro .skip{background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.2); color:#e6eef8; font-weight:600;}
+    .intro .count{display:block; margin-top:10px; font-size:13px; color:#cfe0ff;}
+
+    /* App */
+    body.app-bg{background:linear-gradient(135deg,var(--bg1) 0%,var(--bg2) 100%); background-image:url("img.jpg"); background-size:cover; background-attachment:fixed;}
+    .wrap{min-height:100vh; display:none; align-items:center; justify-content:center; padding:32px;}
+    .app{width:100%; max-width:920px; background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01));
+      border-radius:14px; padding:20px; box-shadow:0 10px 30px rgba(2,6,23,.6); display:grid; grid-template-columns:360px 1fr; gap:18px; border:1px solid rgba(255,255,255,.03);}
+    .left{padding:18px; border-radius:10px; background:linear-gradient(180deg,var(--glass),transparent); display:flex; flex-direction:column; gap:12px;}
+    .title{font-size:20px; font-weight:600; color:var(--muted); margin-bottom:8px;}
+    .search-row{display:flex; gap:8px;}
+    input[type="text"]{flex:1; padding:12px 14px; border-radius:10px; border:none; background:rgba(255,255,255,.03); color:inherit; outline:none; font-size:15px;}
+    button{background:linear-gradient(180deg,var(--accent),#3b82f6); border:none; padding:0 16px; border-radius:10px; color:#fff; font-weight:600; cursor:pointer; min-width:92px;}
+    .small{font-size:13px; color:var(--muted);}
+    .toggle-row{display:flex; gap:8px; align-items:center; margin-top:6px;}
+    .toggle{display:inline-flex; align-items:center; gap:8px; background:rgba(255,255,255,.02); padding:8px; border-radius:10px;}
+    .credit{font-size:12px; color:#9fb0d8; margin-top:auto; text-align:center;}
+    .card{padding:18px; border-radius:12px; background:linear-gradient(180deg,rgba(255,255,255,.02),rgba(255,255,255,.01)); display:flex; flex-direction:column; gap:12px; min-height:240px;}
+    .top{display:flex; align-items:center; gap:16px;}
+    .temp{font-size:56px; font-weight:700; line-height:1; color:#fff;}
+    .meta{font-size:14px; color:var(--muted);}
+    .condition{display:flex; align-items:center; gap:12px;}
+    .condition img{width:64px; height:64px;}
+    .details{display:flex; gap:14px; flex-wrap:wrap; margin-top:8px;}
+    .detail{background:rgba(255,255,255,.02); padding:10px; border-radius:8px; min-width:120px; text-align:center;}
+    .label{font-size:12px; color:var(--muted);}
+    .val{font-weight:600; font-size:16px; margin-top:6px;}
+    .aqi-box{margin-top:8px; padding:12px; border-radius:10px; background:linear-gradient(90deg,rgba(255,255,255,.01),rgba(255,255,255,0));}
+    .aqi-title{font-size:13px; color:var(--muted); margin-bottom:6px;}
+    .aqi-row{display:flex; gap:12px; flex-wrap:wrap;}
+    .aqi-item{padding:8px; border-radius:8px; background:rgba(255,255,255,.02); min-width:140px; text-align:center;}
+    .error{padding:12px; border-radius:8px; background:rgba(255,40,66,.12); color:#ffccd5; border:1px solid rgba(255,40,66,.14);}
+    .loading{font-size:14px; color:var(--muted);}
+    @media (max-width:880px){ .app{grid-template-columns:1fr; max-width:720px;} .left{order:2;} .card{order:1;} .temp{font-size:44px;} }
+  </style>
+</head>
+<body class="app-bg">
+  <!-- Intro / Splash -->
+  <section class="intro" id="intro" role="dialog" aria-modal="true" aria-label="Project Introduction">
+    <div class="panel">
+      <h1>Simple Weather</h1>
+      <p class="desc">A minimal weather dashboard showing current temperature, local time, conditions, and AQI for any city or PIN/ZIP.</p>
+      <div class="team" aria-label="Team">
+        <span class="chip"> Om Hari Yadav </span>
+      </div>
+      <div class="actions">
+        <button id="nextBtn"></button>
+        <button class="skip" id="skipBtn"></button>
+      </div>
+      <span class="count" id="count">Auto continuing in 5s…</span>
+    </div>
+  </section>
+
+  <!-- Main App -->
+  <div class="wrap" id="appWrap" style="display:none" aria-hidden="true">
+    <div class="app" role="application" aria-label="Weather application">
+      <div class="left">
+        <div class="title">Simple Weather — enter a city or country</div>
+        <div class="search-row">
+          <input id="locationInput" type="text" placeholder="e.g. London or New York or 110001" aria-label="Location input" value="London">
+          <button id="searchBtn" aria-label="Get weather">Get</button>
+        </div>
+
+        <div class="toggle-row">
+          <div class="toggle">
+            <label for="unitToggle" class="small">Unit:</label>
+            <select id="unitToggle" aria-label="Select temperature unit">
+              <option value="C">Celsius (°C)</option>
+              <option value="F">Fahrenheit (°F)</option>
+            </select>
+          </div>
+          <div style="flex:1" class="small">
+            Shows current temperature, local time, weather condition & AQI (if available).
+          </div>
+        </div>
+
+        <div id="message" class="small" aria-live="polite" style="min-height:28px"></div>
+        <div class="credit small">API: WeatherAPI — using your provided key</div>
+      </div>
+
+      <div class="card" id="resultCard" aria-live="polite">
+        <div id="defaultState" class="loading">Enter a location and click <strong>Get</strong> to see the weather.</div>
+
+        <div id="weatherView" style="display:none">
+          <div class="top">
+            <div class="condition">
+              <img id="condIcon" src="" alt="weather icon">
+              <div>
+                <div id="locationName" class="meta" style="font-size:18px;font-weight:600"></div>
+                <div id="localTime" class="meta"></div>
+              </div>
+            </div>
+            <div style="margin-left:auto;text-align:right">
+              <div id="tempValue" class="temp"></div>
+              <div id="feelsLike" class="meta"></div>
+            </div>
+          </div>
+
+          <div id="textCondition" class="meta" style="margin-left:4px"></div>
+
+          <div class="details">
+            <div class="detail"><div class="label">Humidity</div><div id="humidity" class="val">--</div></div>
+            <div class="detail"><div class="label">Wind</div><div id="wind" class="val">--</div></div>
+            <div class="detail"><div class="label">Pressure</div><div id="pressure" class="val">--</div></div>
+            <div class="detail"><div class="label">Visibility</div><div id="vis" class="val">--</div></div>
+          </div>
+
+          <div class="aqi-box" id="aqiBox" style="display:none">
+            <div class="aqi-title">Air Quality (AQI)</div>
+            <div class="aqi-row" id="aqiRow"></div>
+          </div>
+
+          <div id="errorBox" style="display:none" class="error"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ---------- INTRO: auto-advance in 5s, buttons optional ---------- */
+    (function(){
+      const intro = document.getElementById('intro');
+      const appWrap = document.getElementById('appWrap');
+      const nextBtn = document.getElementById('nextBtn');
+      const skipBtn = document.getElementById('skipBtn');
+      const countEl = document.getElementById('count');
+
+      let remaining = 5;
+      const tick = setInterval(() => {
+        remaining--;
+        countEl.textContent = `Auto continuing in ${remaining}s…`;
+        if (remaining <= 0) clearInterval(tick);
+      }, 1000);
+
+      function proceed(){
+        clearInterval(tick);
+        appWrap.style.display = 'flex';
+        appWrap.setAttribute('aria-hidden','false');
+        if (intro && intro.parentNode) intro.parentNode.removeChild(intro);
+
+        // focus & fetch default
+        const input = document.getElementById('locationInput');
+        setTimeout(()=> input && input.focus(), 50);
+        if (input && input.value.trim()) setTimeout(()=> getWeather(input.value), 150);
+      }
+
+      nextBtn.addEventListener('click', proceed);
+      skipBtn.addEventListener('click', proceed);
+
+      // auto-advance after 5 seconds
+      setTimeout(proceed, 5000);
+    })();
+
+    /* ---------- WEATHER APP ---------- */
+    const API_KEY = "04a21542cbe94f48ab015206250711";
+    const BASE = "https://api.weatherapi.com/v1/current.json";
+
+    const input = document.getElementById("locationInput");
+    const btn = document.getElementById("searchBtn");
+    const unitSelect = document.getElementById("unitToggle");
+    const message = document.getElementById("message");
+
+    const defaultState = document.getElementById("defaultState");
+    const weatherView = document.getElementById("weatherView");
+    const errorBox = document.getElementById("errorBox");
+    const aqiBox = document.getElementById("aqiBox");
+    const aqiRow = document.getElementById("aqiRow");
+
+    const condIcon = document.getElementById("condIcon");
+    const locationName = document.getElementById("locationName");
+    const localTime = document.getElementById("localTime");
+    const tempValue = document.getElementById("tempValue");
+    const feelsLike = document.getElementById("feelsLike");
+    const textCondition = document.getElementById("textCondition");
+    const humidity = document.getElementById("humidity");
+    const wind = document.getElementById("wind");
+    const pressure = document.getElementById("pressure");
+    const vis = document.getElementById("vis");
+
+    function showMessage(txt, ttl = 4000) {
+      message.textContent = txt;
+      if (ttl) setTimeout(() => { if (message.textContent === txt) message.textContent = ""; }, ttl);
+    }
+    function setLoading(isLoading) {
+      if (isLoading) {
+        defaultState.textContent = "Loading…";
+        defaultState.style.display = "block";
+        weatherView.style.display = "none";
+        errorBox.style.display = "none";
+      } else {
+        defaultState.style.display = "none";
+      }
+    }
+    function showError(txt) {
+      errorBox.style.display = "block";
+      errorBox.textContent = txt;
+      aqiBox.style.display = "none";
+    }
+    function formatTemp(c){ return unitSelect.value==="C" ? Math.round(c)+"°C" : Math.round(c*9/5+32)+"°F"; }
+    function formatWind(k){ return unitSelect.value==="C" ? Math.round(k)+" km/h" : Math.round(k/1.609344)+" mph"; }
+    function formatVis(km){ return unitSelect.value==="C" ? km+" km" : (km/1.609344).toFixed(1)+" mi"; }
+
+    async function getWeather(query) {
+      if (!query || !query.trim()) { showMessage("Please enter a location."); return; }
+      setLoading(true);
+      const q = encodeURIComponent(query.trim());
+      const url = `${BASE}?key=${API_KEY}&q=${q}&aqi=yes`;
+      try {
+        const resp = await fetch(url, { cache: "no-store" });
+        if (!resp.ok) throw new Error(`Server returned ${resp.status}`);
+        const data = await resp.json();
+        renderWeather(data);
+        setLoading(false);
+      } catch (err) {
+        console.error(err);
+        setLoading(false);
+        showError("Could not fetch weather — " + err.message);
+      }
+    }
+
+    function renderWeather(data) {
+      errorBox.style.display = "none";
+      const loc = data.location, cur = data.current;
+      locationName.textContent = `${loc.name}, ${loc.region || loc.country}`;
+      localTime.textContent = `Local time: ${loc.localtime}`;
+      tempValue.textContent = formatTemp(cur.temp_c);
+      feelsLike.textContent = `Feels like ${formatTemp(cur.feelslike_c)}`;
+      textCondition.textContent = cur.condition?.text || "";
+      condIcon.src = cur.condition?.icon ? "https:" + cur.condition.icon : "";
+      condIcon.alt = cur.condition?.text || "weather";
+      humidity.textContent = cur.humidity + " %";
+      wind.textContent = formatWind(cur.wind_kph);
+      pressure.textContent = cur.pressure_mb + " mb";
+      vis.textContent = formatVis(cur.vis_km);
+
+      if (cur.air_quality) {
+        aqiBox.style.display = "block";
+        aqiRow.innerHTML = "";
+        const aq = cur.air_quality;
+        [["US EPA (AQI)", aq["us-epa-index"]],
+         ["PM2.5 (µg/m³)", aq.pm2_5?.toFixed(2) || "--"],
+         ["PM10 (µg/m³)", aq.pm10?.toFixed(2) || "--"],
+         ["O3 (µg/m³)", aq.o3?.toFixed(2) || "--"],
+         ["NO2 (µg/m³)", aq.no2?.toFixed(2) || "--"]]
+        .forEach(([label, val]) => {
+          const div = document.createElement("div");
+          div.className = "aqi-item";
+          div.innerHTML = `<div class="label">${label}</div><div class="val">${val}</div>`;
+          aqiRow.appendChild(div);
+        });
+      } else {
+        aqiBox.style.display = "none";
+      }
+      weatherView.style.display = "block";
+    }
+
+    document.getElementById("searchBtn").addEventListener("click", () => getWeather(input.value));
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") getWeather(input.value); });
+    unitSelect.addEventListener("change", () => {
+      if (weatherView.style.display === "block") {
+        const q = input.value || locationName.textContent || "";
+        if (q) getWeather(q);
+      }
+    });
+  </script>
+</body>
+</html>
